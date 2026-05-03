@@ -1,0 +1,25 @@
+name: docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/**
+      - backend/app/**
+
+jobs:
+  deploy-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: docker compose up -d nginx
+      - run: sleep 45 && curl http://localhost/api/v1/openapi.json -o openapi.json
+      - run: mkdir -p public && cp openapi.json public/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - uses: actions/deploy-pages@v4

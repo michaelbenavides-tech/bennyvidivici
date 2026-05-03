@@ -1,0 +1,55 @@
+name: security-scan
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 0 * * 0"
+
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pip install pip-audit
+      - run: pip-audit
+        working-directory: backend
+      - run: npm install && npm audit --audit-level=high
+        working-directory: frontend
+
+  container-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t ai-sgp-backend ./backend
+      - run: docker build -t ai-sgp-frontend ./frontend
+      - uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ai-sgp-backend
+          severity: CRITICAL
+          exit-code: "1"
+      - uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ai-sgp-frontend
+          severity: CRITICAL
+          exit-code: "1"
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gitleaks/gitleaks-action@v2
+
+  sast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install bandit semgrep
+      - run: bandit -r backend/app
+      - run: semgrep scan --config auto

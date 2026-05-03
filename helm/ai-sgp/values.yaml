@@ -1,0 +1,25 @@
+image:
+  backend: ai-sgp/backend:latest
+  frontend: ai-sgp/frontend:latest
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+
+ingress:
+  enabled: false
+  host: ai-sgp.local
+
+env:
+  POSTGRES_HOST: postgres
+  POSTGRES_DB: aisgp
+  POSTGRES_USER: aisgp
+  POSTGRES_PASSWORD: changeme_in_production
+  REDIS_HOST: redis
+  REDIS_PASSWORD: changeme_in_production
+  MINIO_ENDPOINT: minio:9000
+  MINIO_ACCESS_KEY: minioadmin
+  MINIO_SECRET_KEY: changeme_in_production
+  SECRET_KEY: changeme_in_production_use_openssl_rand_hex_32
+  AUTH_DISABLED: "false"

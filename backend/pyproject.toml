@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "ai-sgp-backend"
+version = "0.1.0"
+description = "AI-SGP FastAPI backend"
+authors = ["AI-SGP contributors"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.111.0"
+uvicorn = { extras = ["standard"], version = "^0.30.0" }
+sqlalchemy = "^2.0.30"
+psycopg = { extras = ["binary"], version = "^3.1.19" }
+pydantic-settings = "^2.2.1"
+python-multipart = "^0.0.9"
+minio = "^7.2.7"
+redis = "^5.0.4"
+celery = "^5.4.0"
+weasyprint = "^62.0"
+jinja2 = "^3.1.4"
+pyjwt = { extras = ["crypto"], version = "^2.8.0" }
+httpx = "^0.27.0"
+slowapi = "^0.1.9"
+alembic = "^1.13.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.0"
+pytest-asyncio = "^0.23.6"
+black = "^24.4.2"
+isort = "^5.13.2"
+flake8 = "^7.0.0"
+mypy = "^1.10.0"
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.coverage.report]
+fail_under = 80

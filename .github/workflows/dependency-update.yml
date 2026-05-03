@@ -1,0 +1,24 @@
+name: dependency-update
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  update-python-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install pip-tools
+      - run: pip-compile --upgrade pyproject.toml
+        working-directory: backend
+
+  update-node-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm update
+        working-directory: frontend

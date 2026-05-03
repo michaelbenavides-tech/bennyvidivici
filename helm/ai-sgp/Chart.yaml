@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ai-sgp
+description: AI Security Governance Platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

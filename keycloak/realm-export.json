@@ -1,0 +1,38 @@
+{
+  "realm": "ai-sgp",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      { "name": "viewer" },
+      { "name": "reviewer" },
+      { "name": "approver" },
+      { "name": "admin" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "ai-sgp-frontend",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["http://localhost/*", "http://localhost:3000/*"],
+      "webOrigins": ["*"]
+    },
+    {
+      "clientId": "ai-sgp-backend",
+      "enabled": true,
+      "secret": "changeme_in_production",
+      "serviceAccountsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@demo.ai-sgp.local",
+      "email": "admin@demo.ai-sgp.local",
+      "firstName": "Demo",
+      "lastName": "Admin",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "ChangeMe123!", "temporary": false }],
+      "realmRoles": ["admin", "approver", "reviewer", "viewer"]
+    }
+  ]
+}
