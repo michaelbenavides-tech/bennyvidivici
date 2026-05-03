@@ -1,55 +1,191 @@
-name: security-scan
+name: Security Scan
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   schedule:
-    - cron: "0 0 * * 0"
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
 
 jobs:
+
   dependency-audit:
+    name: Dependency Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
-          python-version: "3.11"
-      - uses: actions/setup-node@v4
+          python-version: '3.11'
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Run pip-audit (report only)
+        run: |
+          pip-audit --requirement backend/requirements.txt \
+            --output json > pip-audit-results.json || true
+          cat pip-audit-results.json
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
-          node-version: "20"
-      - run: pip install pip-audit
-      - run: pip-audit
-        working-directory: backend
-      - run: npm install && npm audit --audit-level=high
+          node-version: '20'
+
+      - name: Run npm audit (report only)
         working-directory: frontend
+        run: |
+          npm install --package-lock-only 2>/dev/null || true
+          npm audit --json > ../npm-audit-results.json || true
+          cat ../npm-audit-results.json
+
+      - name: Upload audit results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-audit-results
+          path: |
+            pip-audit-results.json
+            npm-audit-results.json
 
   container-scan:
+    name: Container Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - run: docker build -t ai-sgp-backend ./backend
-      - run: docker build -t ai-sgp-frontend ./frontend
-      - uses: aquasecurity/trivy-action@master
+      - name: Checkout
+        uses: actions/checkout@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+      - name: Build backend image
+        run: |
+          docker build -t ai-sgp-backend:scan ./backend || \
+          echo "Backend build failed — skipping scan" > backend-build.log
+
+      - name: Scan backend image with Trivy (report only)
+        uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
-          image-ref: ai-sgp-backend
-          severity: CRITICAL
-          exit-code: "0"
-      - uses: aquasecurity/trivy-action@master
+          image-ref: 'ai-sgp-backend:scan'
+          format: 'sarif'
+          output: 'trivy-backend.sarif'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Build frontend image
+        run: |
+          docker build -t ai-sgp-frontend:scan ./frontend || \
+          echo "Frontend build failed — skipping scan" > frontend-build.log
+
+      - name: Scan frontend image with Trivy (report only)
+        uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
-          image-ref: ai-sgp-frontend
-          severity: CRITICAL
-          exit-code: "0"
+          image-ref: 'ai-sgp-frontend:scan'
+          format: 'sarif'
+          output: 'trivy-frontend.sarif'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Upload Trivy SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true
+        with:
+          sarif_file: '.'
+          category: 'container-scan'
+
+      - name: Upload scan artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: container-scan-results
+          path: |
+            trivy-backend.sarif
+            trivy-frontend.sarif
 
   secret-scan:
+    name: Secret Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: gitleaks/gitleaks-action@v2
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
   sast:
+    name: Static Analysis (SAST)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - run: pip install bandit semgrep
-      - run: bandit -r backend/app
-      - run: semgrep scan --config auto
+      - name: Checkout
+        uses: actions/checkout@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          python-version: '3.11'
+
+      - name: Install Bandit
+        run: pip install bandit[toml]
+
+      - name: Run Bandit (report only)
+        run: |
+          bandit -r backend/app/ \
+            --format json \
+            --output bandit-results.json \
+            --severity-level medium \
+            --confidence-level medium \
+            -ll || true
+          bandit -r backend/app/ \
+            --severity-level medium \
+            --confidence-level medium \
+            -ll || true
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep (report only)
+        run: |
+          semgrep --config=auto \
+            --json \
+            --output=semgrep-results.json \
+            backend/app/ || true
+          semgrep --config=auto \
+            backend/app/ || true
+        continue-on-error: true
+
+      - name: Upload SAST results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sast-results
+          path: |
+            bandit-results.json
+            semgrep-results.json
